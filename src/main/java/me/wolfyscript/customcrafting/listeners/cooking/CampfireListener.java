@@ -21,12 +21,12 @@
  */
 
 package me.wolfyscript.customcrafting.listeners.cooking;
-
+import org.bukkit.block.Block;
+import org.bukkit.block.data.BlockData;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.Optional;
 import me.wolfyscript.customcrafting.CustomCrafting;
-import me.wolfyscript.customcrafting.recipes.ICustomVanillaRecipe;
 import me.wolfyscript.customcrafting.recipes.RecipeType;
 import me.wolfyscript.customcrafting.recipes.conditions.Conditions;
 import me.wolfyscript.customcrafting.recipes.data.CampfireRecipeData;
@@ -44,6 +44,8 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.CookingRecipe;
 import org.bukkit.inventory.Recipe;
 
+
+
 /**
  * Handles campfire recipes without any NMS (which was used in previous versions of CC).
  * It checks for a valid recipe on interaction and when the recipe is done cooking.
@@ -59,10 +61,15 @@ public class CampfireListener implements Listener {
 
     @EventHandler
     public void onInteractCampfire(PlayerInteractEvent event) {
-        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
-        if (event.getClickedBlock() == null || (event.getClickedBlock().getType() != Material.CAMPFIRE && event.getClickedBlock().getType() != Material.SOUL_CAMPFIRE)) return;
-        if (ItemUtils.isAirOrNull(event.getItem())) return;
-        Campfire campfire = (Campfire) event.getClickedBlock().getState();
+      if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+      if (event.getClickedBlock() == null) return;
+      if (ItemUtils.isAirOrNull(event.getItem())) return;
+
+      Block block = event.getClickedBlock();
+      BlockData blockData = block.getBlockData();
+      if (blockData instanceof Campfire) {
+        Campfire campfire = (Campfire) blockData;
+
         getFirstEmptySlot(campfire).ifPresent(slot -> customCrafting.getRegistries().getRecipes().get(RecipeType.CAMPFIRE).stream()
                 .filter(recipe1 -> recipe1.getSource().check(event.getItem(), recipe1.isCheckNBT()).isPresent() && recipe1.checkConditions(Conditions.Data.of(campfire.getBlock())))
                 .findFirst()
@@ -71,7 +78,7 @@ public class CampfireListener implements Listener {
                         () -> {
                             Iterator<Recipe> recipeIterator = customCrafting.getApi().getNmsUtil().getRecipeUtil().recipeIterator(me.wolfyscript.utilities.api.nms.inventory.RecipeType.CAMPFIRE_COOKING);
                             while (recipeIterator.hasNext()) {
-                                if (recipeIterator.next() instanceof CookingRecipe<?> recipe && !ICustomVanillaRecipe.isPlaceholderOrDisplayRecipe(recipe.getKey())) {
+                                if (recipeIterator.next() instanceof CookingRecipe<?> recipe && !recipe.getKey().getNamespace().equals(NamespacedKeyUtils.NAMESPACE)) {
                                     if (recipe.getInputChoice().test(event.getItem())) {
                                         // Found a vanilla or other plugin recipe that matches.
                                         campfire.setCookTimeTotal(slot, recipe.getCookingTime());
@@ -90,7 +97,7 @@ public class CampfireListener implements Listener {
                         }));
         campfire.update();
     }
-
+  }
     private Optional<Integer> getFirstEmptySlot(Campfire campfire) {
         for (int i = 0; i < campfire.getSize(); i++) {
             if (campfire.getItem(i) == null) {
@@ -116,7 +123,7 @@ public class CampfireListener implements Listener {
                 .ifPresentOrElse(campfireRecipeData -> campfireRecipeData.getRecipe().getResult().getItem(event.getBlock()).ifPresent(customItem -> event.setResult(customItem.create())), () -> {
                     Iterator<Recipe> recipeIterator = customCrafting.getApi().getNmsUtil().getRecipeUtil().recipeIterator(me.wolfyscript.utilities.api.nms.inventory.RecipeType.CAMPFIRE_COOKING);
                     while (recipeIterator.hasNext()) {
-                        if (recipeIterator.next() instanceof CookingRecipe<?> recipe && !ICustomVanillaRecipe.isPlaceholderOrDisplayRecipe(recipe.getKey())) {
+                        if (recipeIterator.next() instanceof CookingRecipe<?> recipe && !recipe.getKey().getNamespace().equals(NamespacedKeyUtils.NAMESPACE)) {
                             if (recipe.getInputChoice().test(event.getSource())) {
                                 // Found a vanilla or other plugin recipe that matches.
                                 event.setResult(recipe.getResult());
